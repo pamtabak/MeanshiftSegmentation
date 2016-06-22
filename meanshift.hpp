@@ -1,7 +1,10 @@
 #include "libs/CImg.h"
 #include <iostream>
 #include <algorithm>
-#include "libs/ANN.h"
+#include <ANN/ANN.h>
+#include <cstdlib>						// C standard library
+#include <cstdio>						// C I/O (for sscanf)
+#include <cstring>						// string manipulation
 
 #define cimg_use_magick
 
@@ -31,21 +34,22 @@ typedef struct imageMatrix
 
 class Meanshift
 {
+public:
 	Meanshift()
 	{
 
 	}
 	~Meanshift()
 	{
-		delete matrix;
+		delete image.matrix;
 	}
 
-	void initializeImage()
+	void initializeImage(int width, int height)
 	{
-		image = new pixel*[width];
+		image.matrix = new pixel*[width];
 		for (int i = 0; i < width; i++)
 		{
-			image[i] = new pixel[height];
+			image.matrix[i] = new pixel[height];
 		}
 	}
 
@@ -56,24 +60,48 @@ class Meanshift
 		int spectrum = 3; 
 		int depth    = 1;
 
-		// ANN_H::ANNcoord* ANNPoint;
+		initializeImage(width, height);
 
-		initializeImage();
+		findNearestNeighboors(width, height, 50);
 
-		// for each pixel
-		for (int x = 0; x < width; x++)
-		{
-			for (int y = 0; y < height; y++)
-			{
-				image[x][y].xPosition = x;
-				image[x][y].yPosition = y;
-				image[x][y].red       = img(x,y,0,0);
-				image[x][y].green     = img(x,y,0,1);
-				image[x][y].blue      = img(x,y,0,2);
-			}
-		}
+		// // for each pixel
+		// for (int x = 0; x < width; x++)
+		// {
+		// 	for (int y = 0; y < height; y++)
+		// 	{
+		// 		image.matrix[x][y].xPosition = x;
+		// 		image.matrix[x][y].yPosition = y;
+		// 		image.matrix[x][y].red       = img(x,y,0,0);
+		// 		image.matrix[x][y].green     = img(x,y,0,1);
+		// 		image.matrix[x][y].blue      = img(x,y,0,2);
+		// 	}
+		// }
 
 		changeColorSpace();
+	}
+
+	void findNearestNeighboors (int width, int height, int k)
+	{
+		std::cout << "findNearestNeighboors" << std::endl;
+		int			  nPts;					// actual number of data points
+		ANNpointArray dataPts;				// data points
+		ANNpoint	  queryPt;				// query point
+		ANNidxArray	  nnIdx;				// near neighbor indices
+		ANNdistArray  dists;				// near neighbor distances
+		ANNkd_tree*	  kdTree;			    // search structure
+
+		int maxPts = width * height;// maximum number of data points (default = 1000)
+
+		// queryPt = annAllocPt(dimension);					    // allocate query point
+		// dataPts = annAllocPts(maxPts, dimension);		// allocate data points
+		// nnIdx   = new ANNidx[k];						// allocate near neigh indices
+		// dists   = new ANNdist[k];						// allocate near neighbor dists
+
+		nPts = 0;									// read data points
+		// kdTree = new ANNkd_tree(					// build search structure
+		// 			dataPts,					    // the data points
+		// 			maxPts,						    // number of points
+		// 			dimension);						// dimension of space
 	}
 
 	// color range [0,1]
@@ -165,4 +193,5 @@ class Meanshift
 
 private:
 	imageMatrix image;
+	int dimension = 5; // dimension of the space (default = 2)
 };
