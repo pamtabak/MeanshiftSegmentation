@@ -8,8 +8,6 @@ using namespace cimg_library;
 
 // g++ main.cpp -o main.out -L/opt/X11/lib -lX11 -pthread -std=c++11 -I/opt/ann/include -L/opt/ann/lib -lANN
 
-//  g++ my_program.cpp -Iann/include -Lann/lib -lANN
-
 // carregar todos os pontos iniciais para um kdtree (ANN)
 // Duplicar todos os pontos iniciais, criando os pontos moveis
 // procurar por 50 vizinhos mais proximos. Andar com o ponto movel
