@@ -61,28 +61,29 @@ public:
 		int depth    = 1;
 
 		initializeImage(width, height);
+		image.width  = width;
+		image.height = height;
 
-		findNearestNeighboors(width, height, 50);
-
-		// // for each pixel
-		// for (int x = 0; x < width; x++)
-		// {
-		// 	for (int y = 0; y < height; y++)
-		// 	{
-		// 		image.matrix[x][y].xPosition = x;
-		// 		image.matrix[x][y].yPosition = y;
-		// 		image.matrix[x][y].red       = img(x,y,0,0);
-		// 		image.matrix[x][y].green     = img(x,y,0,1);
-		// 		image.matrix[x][y].blue      = img(x,y,0,2);
-		// 	}
-		// }
+		// for each pixel
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				image.matrix[x][y].xPosition = x;
+				image.matrix[x][y].yPosition = y;
+				image.matrix[x][y].red       = img(x,y,0,0);
+				image.matrix[x][y].green     = img(x,y,0,1);
+				image.matrix[x][y].blue      = img(x,y,0,2);
+			}
+		}
 
 		changeColorSpace();
+
+		findNearestNeighboors(50);
 	}
 
-	void findNearestNeighboors (int width, int height, int k)
+	void findNearestNeighboors (int k)
 	{
-		std::cout << "findNearestNeighboors" << std::endl;
 		int			  nPts;					// actual number of data points
 		ANNpointArray dataPts;				// data points
 		ANNpoint	  queryPt;				// query point
@@ -90,18 +91,27 @@ public:
 		ANNdistArray  dists;				// near neighbor distances
 		ANNkd_tree*	  kdTree;			    // search structure
 
-		int maxPts = width * height;// maximum number of data points (default = 1000)
+		int maxPts = image.width * image.height;// maximum number of data points (default = 1000)
 
-		// queryPt = annAllocPt(dimension);					    // allocate query point
-		// dataPts = annAllocPts(maxPts, dimension);		// allocate data points
-		// nnIdx   = new ANNidx[k];						// allocate near neigh indices
-		// dists   = new ANNdist[k];						// allocate near neighbor dists
+		queryPt = annAllocPt(dimension);			    // allocate query point
+		dataPts = annAllocPts(maxPts, dimension);		// allocate data points
+		nnIdx   = new ANNidx[k];						// allocate near neigh indices
+		dists   = new ANNdist[k];						// allocate near neighbor dists
 
-		nPts = 0;									// read data points
-		// kdTree = new ANNkd_tree(					// build search structure
-		// 			dataPts,					    // the data points
-		// 			maxPts,						    // number of points
-		// 			dimension);						// dimension of space
+		// insert all points in dataPts
+		for (int x = 0; x < image.width; x++)
+		{
+			for (int y = 0; y < image.height; y++)
+			{
+				double array [dimension] = {(double) x, (double) y, image.matrix[x][y].lColor, image.matrix[x][y].uColor, image.matrix[x][y].vColor};
+				dataPts[image.width*x + y] = array;
+			}
+		}
+
+		kdTree = new ANNkd_tree(					// build search structure
+					dataPts,					    // the data points
+					maxPts,						    // number of points
+					dimension);						// dimension of space
 	}
 
 	// color range [0,1]
@@ -194,4 +204,5 @@ public:
 private:
 	imageMatrix image;
 	int dimension = 5; // dimension of the space (default = 2)
+	double eps    = 0.008856;
 };
