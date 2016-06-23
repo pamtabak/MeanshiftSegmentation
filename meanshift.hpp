@@ -79,19 +79,26 @@ public:
 
 		changeColorSpace();
 
-		findNearestNeighboors(50);
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				findNearestNeighboors(50, image.matrix[x][y]);
+				// DO THE MATH!
+			}
+		}
 	}
 
-	void findNearestNeighboors (int k)
+	void findNearestNeighboors (int k, pixel p)
 	{
-		int			  nPts;					// actual number of data points
-		ANNpointArray dataPts;				// data points
-		ANNpoint	  queryPt;				// query point
-		ANNidxArray	  nnIdx;				// near neighbor indices
-		ANNdistArray  dists;				// near neighbor distances
-		ANNkd_tree*	  kdTree;			    // search structure
+		int			  nPts;					            // actual number of data points
+		ANNpointArray dataPts;				            // data points
+		ANNpoint	  queryPt;				            // query point
+		ANNidxArray	  nnIdx;				            // near neighbor indices
+		ANNdistArray  dists;				            // near neighbor distances
+		ANNkd_tree*	  kdTree;			                // search structure
 
-		int maxPts = image.width * image.height;// maximum number of data points (default = 1000)
+		int maxPts = image.width * image.height;        // maximum number of data points (default = 1000)
 
 		queryPt = annAllocPt(dimension);			    // allocate query point
 		dataPts = annAllocPts(maxPts, dimension);		// allocate data points
@@ -112,6 +119,21 @@ public:
 					dataPts,					    // the data points
 					maxPts,						    // number of points
 					dimension);						// dimension of space
+
+		double query [dimension] = {(double) p.xPosition, (double) p.yPosition, p.lColor, p.uColor, p.vColor};
+		queryPt = query;	
+
+		kdTree->annkSearch(						// search
+				queryPt,						// query point
+				k,								// number of near neighbors
+				nnIdx,							// nearest neighbors (returned)
+				dists,							// distance (returned)
+				eps);							// error bound
+
+		delete [] nnIdx;						// clean things up
+    	delete [] dists;
+    	delete kdTree;
+		annClose();								// done with ANN
 	}
 
 	// color range [0,1]
