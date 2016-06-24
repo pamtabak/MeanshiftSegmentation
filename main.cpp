@@ -15,6 +15,8 @@ using namespace cimg_library;
 // achou o ponto final, depois de parar de convergir. Para achar a cor deste ponto, 
 // olhar na imagem inicial a partir do ponto xy
 
+// se um ponto parar de andar, vetor < eps, parar de considera-lo, para ficar mais rapido o calculo
+
 // clusterizacao: comeca com cada pixel sendo um cluster
 // juntar cluster: cada cluster tem um valor. Media ponderada (cores rgb) pelos tamanhos 
 // (numero de pixels dentro de cada cluster)
