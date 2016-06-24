@@ -15,6 +15,10 @@ using namespace cimg_library;
 // achou o ponto final, depois de parar de convergir. Para achar a cor deste ponto, 
 // olhar na imagem inicial a partir do ponto xy
 
+// clusterizacao: comeca com cada pixel sendo um cluster
+// juntar cluster: cada cluster tem um valor. Media ponderada (cores rgb) pelos tamanhos 
+// (numero de pixels dentro de cada cluster)
+
 int main(int argc, char * argv[]) 
 {
 	CImg<double> image("images/input/marroquim.png");
