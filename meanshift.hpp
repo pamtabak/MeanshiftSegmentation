@@ -24,6 +24,7 @@ typedef struct pixel
 	double lColor;
 	double uColor;
 	double vColor;
+	bool isMoving;
 } pixel;
 
 typedef struct imageMatrix
@@ -65,8 +66,7 @@ public:
 		image.width  = width;
 		image.height = height;
 
-		pixel * lastMatrix    = new pixel[width*height]; // Yt
-		pixel * currentMatrix = new pixel[width*height]; // Yt+1
+		pixel *currentMatrix = new pixel[width*height];
 
 		// for each pixel
 		for (int x = 0; x < width; x++)
@@ -85,7 +85,9 @@ public:
 
 		int maxPts = width * height;                 // maximum number of data points (default = 1000)
 		ANNpointArray dataPts = annAllocPts(maxPts, dimension);	 // allocate data points
-		generateDataPts(dataPts, lastMatrix);
+		generateDataPts(dataPts, currentMatrix);
+
+		std::cout << "oi" << std::endl;
 
 		ANNkd_tree*	  kdTree;			            // search structure
 		kdTree = new ANNkd_tree(					// build search structure
@@ -93,46 +95,77 @@ public:
 					maxPts,						    // number of points
 					dimension);						// dimension of space
 
-		bool stop = false;
-
-		double C = 1 / (pow(2 * M_PI, dimension / 2) * k * pow (hs,2) * pow(hr, 3)); 
-		// DUVIDA: em cima e K mesmo ou deveria usar o numero de pixels???
-
-		while (!stop)
+		int kernelsChanging = maxPts;
+		while (kernelsChanging > 0)
 		{
-			for (int x = 0; x < width; x++)
+			for (int y = 0; y < height; y++)
 			{
-				for (int y = 0; y < height; y++)
+				for (int x = 0; x < width; x++)
 				{
-					ANNidxArray nnIdx = findNearestNeighbors(image.matrix[x][y], dataPts, kdTree);
-
-					// DO THE MATH!
-					for (int i = 0; i < k; i++) // iterating over each neighbor
+					if (currentMatrix[(y *  width) + x].isMoving)
 					{
-						// currentMatrix[width*x + height] += 
-						// std::cout << dataPts[nnIdx[i]][4] << std::endl;
-					}
-					
-					// double kernel = (C / pow(hs, 2) * pow(hr, 2));
-					// k(u, h) = exp ((- 1 * pow(||xi - x||, 2)) / (2 * pow(h,2))) 
+						ANNidxArray nnIdx = findNearestNeighbors(image.matrix[x][y], dataPts, kdTree);
 
-					delete [] nnIdx;
+						// DO THE MATH!
+						double xNumerator  = 0.0;
+						double denominator = 0.0;
+						double yNumerator  = 0.0;
+						double lNumerator  = 0.0;
+						double uNumerator  = 0.0;
+						double vNumerator  = 0.0;
+						
+						for (int i = 0; i < k; i++) // iterating over each neighbor
+						{
+							double moduleXs = sqrt(pow(dataPts[nnIdx[i]][0], 2) + pow(dataPts[nnIdx[i]][1], 2));
+							double moduleXr = sqrt(pow(dataPts[nnIdx[i]][2], 2) + pow(dataPts[nnIdx[i]][3], 2) + pow(dataPts[nnIdx[i]][4], 2));
+							double xsPow = - (pow(moduleXs / hs, 2));
+							double xrPow = - (pow(moduleXr / hr, 2));
+
+							double den = exp (xsPow) * exp (xrPow);
+
+							xNumerator += dataPts[nnIdx[i]][0] * den;
+							denominator += den;
+							yNumerator += dataPts[nnIdx[i]][1] * den;
+							lNumerator += dataPts[nnIdx[i]][2] * den;
+							uNumerator += dataPts[nnIdx[i]][3] * den;
+							vNumerator += dataPts[nnIdx[i]][4] * den;
+							// std::cout << dataPts[nnIdx[i]][4] << std::endl;
+						}
+						currentMatrix[(y *  width) + x].xPosition += xNumerator / denominator;
+						currentMatrix[(y *  width) + x].yPosition += yNumerator / denominator;
+						currentMatrix[(y *  width) + x].lColor    += lNumerator / denominator;
+						currentMatrix[(y *  width) + x].uColor    += uNumerator / denominator;
+						currentMatrix[(y *  width) + x].vColor    += vNumerator / denominator;
+						
+						double vec = sqrt(pow(xNumerator/denominator, 2) + 
+							pow(yNumerator/denominator, 2) +
+							pow(lNumerator/denominator, 2) +
+							pow(uNumerator/denominator, 2) +
+							pow(vNumerator/denominator, 2));
+
+						if (vec <= eps)
+						{
+							kernelsChanging--;
+							currentMatrix[(y *  width) + x].isMoving = false;
+						}
+
+						delete [] nnIdx;
+					}
 				}
 			}
 
-			stop = true; // we need to check all distance vectors ( < eps )
+			break;
 		}
 
-		delete [] lastMatrix;
 		delete [] currentMatrix;
 	}
 
-	void generateDataPts (ANNpointArray & dataPts, pixel * lastMatrix)
+	void generateDataPts (ANNpointArray & dataPts, pixel * currentMatrix)
 	{
 		// insert all points in dataPts
-		for (int x = 0; x < image.width; x++)
+		for (int y = 0; y < image.height; y++)	
 		{
-			for (int y = 0; y < image.height; y++)
+			for (int x = 0; x < image.width; x++)
 			{
 				ANNpoint point = annAllocPt(dimension);			    // allocate query point
 				point[0]       = (double) x;
@@ -141,13 +174,14 @@ public:
 				point[3]       = image.matrix[x][y].uColor;
 				point[4]       = image.matrix[x][y].vColor;
 				
-				dataPts[image.width*x + y] = annCopyPt(dimension, point);
+				dataPts[(y * image.width) + x] = annCopyPt(dimension, point);
 
-				lastMatrix[image.width*x + y].xPosition = point[0];
-				lastMatrix[image.width*x + y].yPosition = point[1];
-				lastMatrix[image.width*x + y].lColor    = point[2];
-				lastMatrix[image.width*x + y].uColor    = point[3];
-				lastMatrix[image.width*x + y].vColor    = point[4];
+				currentMatrix[(y * image.width) + x].xPosition = point[0];
+				currentMatrix[(y * image.width) + x].yPosition = point[1];
+				currentMatrix[(y * image.width) + x].lColor    = point[2];
+				currentMatrix[(y * image.width) + x].uColor    = point[3];
+				currentMatrix[(y * image.width) + x].vColor    = point[4];
+				currentMatrix[(y * image.width) + x].isMoving  = true;
 			}
 		}
 	}
