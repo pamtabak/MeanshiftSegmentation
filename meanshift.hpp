@@ -13,8 +13,8 @@ using namespace cimg_library;
 
 typedef struct pixel
 {
-	int xPosition;
-	int yPosition;
+	double xPosition;
+	double yPosition;
 	double red;
 	double green;
 	double blue;
@@ -33,6 +33,12 @@ typedef struct imageMatrix
 	int height;
 	pixel **matrix;
 } imageMatrix;
+
+typedef struct cluster
+{
+	double vec;
+	std::vector<pixel> points;
+} cluster;
 
 class Meanshift
 {
@@ -87,8 +93,6 @@ public:
 		ANNpointArray dataPts = annAllocPts(maxPts, dimension);	 // allocate data points
 		generateDataPts(dataPts, currentMatrix);
 
-		std::cout << "oi" << std::endl;
-
 		ANNkd_tree*	  kdTree;			            // search structure
 		kdTree = new ANNkd_tree(					// build search structure
 					dataPts,					    // the data points
@@ -103,8 +107,8 @@ public:
 				for (int x = 0; x < width; x++)
 				{
 					if (currentMatrix[(y *  width) + x].isMoving)
-					{
-						ANNidxArray nnIdx = findNearestNeighbors(image.matrix[x][y], dataPts, kdTree);
+					{	
+						ANNidxArray nnIdx = findNearestNeighbors(currentMatrix[(y * width) + x], dataPts, kdTree);
 
 						// DO THE MATH!
 						double xNumerator  = 0.0;
@@ -113,38 +117,56 @@ public:
 						double lNumerator  = 0.0;
 						double uNumerator  = 0.0;
 						double vNumerator  = 0.0;
-						
+
 						for (int i = 0; i < k; i++) // iterating over each neighbor
 						{
-							double moduleXs = sqrt(pow(dataPts[nnIdx[i]][0], 2) + pow(dataPts[nnIdx[i]][1], 2));
-							double moduleXr = sqrt(pow(dataPts[nnIdx[i]][2], 2) + pow(dataPts[nnIdx[i]][3], 2) + pow(dataPts[nnIdx[i]][4], 2));
-							double xsPow = - (pow(moduleXs / hs, 2));
-							double xrPow = - (pow(moduleXr / hr, 2));
+							double moduleXs = sqrt(pow(dataPts[nnIdx[i]][0] - currentMatrix[(y* width) + x].xPosition, 2) 
+								+ pow(dataPts[nnIdx[i]][1] - currentMatrix[(y* width) + x].yPosition, 2));
+							double moduleXr = sqrt(pow(dataPts[nnIdx[i]][2] - currentMatrix[(y* width) + x].lColor, 2) 
+								+ pow(dataPts[nnIdx[i]][3] - currentMatrix[(y* width) + x].uColor, 2) 
+								+ pow(dataPts[nnIdx[i]][4] - currentMatrix[(y* width) + x].vColor, 2));
+							double xsPow    = - (pow(moduleXs / hs, 2));
+							double xrPow    = - (pow(moduleXr / hr, 2));
 
 							double den = exp (xsPow) * exp (xrPow);
-
-							xNumerator += dataPts[nnIdx[i]][0] * den;
-							denominator += den;
-							yNumerator += dataPts[nnIdx[i]][1] * den;
-							lNumerator += dataPts[nnIdx[i]][2] * den;
-							uNumerator += dataPts[nnIdx[i]][3] * den;
-							vNumerator += dataPts[nnIdx[i]][4] * den;
-							// std::cout << dataPts[nnIdx[i]][4] << std::endl;
-						}
-						currentMatrix[(y *  width) + x].xPosition += xNumerator / denominator;
-						currentMatrix[(y *  width) + x].yPosition += yNumerator / denominator;
-						currentMatrix[(y *  width) + x].lColor    += lNumerator / denominator;
-						currentMatrix[(y *  width) + x].uColor    += uNumerator / denominator;
-						currentMatrix[(y *  width) + x].vColor    += vNumerator / denominator;
 						
-						double vec = sqrt(pow(xNumerator/denominator, 2) + 
-							pow(yNumerator/denominator, 2) +
-							pow(lNumerator/denominator, 2) +
-							pow(uNumerator/denominator, 2) +
-							pow(vNumerator/denominator, 2));
+							xNumerator  += dataPts[nnIdx[i]][0] * den;
+							yNumerator  += dataPts[nnIdx[i]][1] * den;
+							lNumerator  += dataPts[nnIdx[i]][2] * den;
+							uNumerator  += dataPts[nnIdx[i]][3] * den;
+							vNumerator  += dataPts[nnIdx[i]][4] * den;
+							denominator += den;
+						}
+						
+						double vec = sqrt(pow(xNumerator/denominator - currentMatrix[(y *  width) + x].xPosition, 2) + 
+							              pow(yNumerator/denominator - currentMatrix[(y *  width) + x].yPosition, 2) +
+							              pow(lNumerator/denominator - currentMatrix[(y *  width) + x].lColor,    2) +
+							              pow(uNumerator/denominator - currentMatrix[(y *  width) + x].uColor,    2) +
+							              pow(vNumerator/denominator - currentMatrix[(y *  width) + x].vColor,    2));
+
+
+						currentMatrix[(y *  width) + x].xPosition = xNumerator / denominator;
+						currentMatrix[(y *  width) + x].yPosition = yNumerator / denominator;
+						currentMatrix[(y *  width) + x].lColor    = lNumerator / denominator;
+						currentMatrix[(y *  width) + x].uColor    = uNumerator / denominator;
+						currentMatrix[(y *  width) + x].vColor    = vNumerator / denominator;
+
+						dataPts[(y * width) + x][0] = currentMatrix[(y *  width) + x].xPosition;
+						dataPts[(y * width) + x][1] = currentMatrix[(y *  width) + x].yPosition;
+						dataPts[(y * width) + x][2] = currentMatrix[(y *  width) + x].lColor;
+						dataPts[(y * width) + x][3] = currentMatrix[(y *  width) + x].uColor;
+						dataPts[(y * width) + x][4] = currentMatrix[(y *  width) + x].vColor;
+
+						// // std::cout << "    " << x << "," << y << std::endl;
+						// if (x == 25 && y == 82)
+						// {
+						// 	std::cout << xNumerator/denominator << ", " << currentMatrix[(y * width) + x].xPosition << std::endl;
+						// 	// std::cout << "    "<< vec << std::endl;
+						// }
 
 						if (vec <= eps)
 						{
+							std::cout << kernelsChanging << std::endl;
 							kernelsChanging--;
 							currentMatrix[(y *  width) + x].isMoving = false;
 						}
@@ -153,9 +175,21 @@ public:
 					}
 				}
 			}
-
-			break;
 		}
+
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				pixel p = currentMatrix[(y * width) + x];
+
+				img(x,y,0,0) = img(p.xPosition, p.yPosition, 0, 0); // r
+				img(x,y,0,1) = img(p.xPosition, p.yPosition, 0, 1); // g
+				img(x,y,0,2) = img(p.xPosition, p.yPosition, 0, 2); // b
+			}
+		}
+
+		img.save("images/output/result.png");
 
 		delete [] currentMatrix;
 	}
@@ -300,6 +334,44 @@ public:
 
 		return answer;
 	}
+
+	// pixel bilinearInterpolation(double x, double y, int width, int height)
+	// {
+	// 	pixel a,b,c,d;
+	// 	a.xPosition = floor(x);
+	// 	a.yPosition = floor(y);
+
+	// 	b.xPosition = floor(x);
+	// 	b.yPosition = ceil(y);
+	// 	if (b.yPosition == height)
+	// 		b.yPosition--;
+
+	// 	c.xPosition = ceil(x);
+	// 	if (c.xPosition == width)
+	// 		c.xPosition--;
+	// 	c.yPosition = floor(y);
+
+	// 	d.xPosition = ceil(x);
+	// 	if (d.xPosition == width)
+	// 		d.xPosition--;
+	// 	d.yPosition = ceil(y);
+	// 	if (d.yPosition == height)
+	// 		d.yPosition--;
+
+	// 	double distanceA = sqrt(pow((x - a.xPosition), 2) + pow ((y - a.yPosition), 2));
+	// 	double distanceB = sqrt(pow((x - b.xPosition), 2) + pow ((y - b.yPosition), 2));
+	// 	double distanceC = sqrt(pow((x - c.xPosition), 2) + pow ((y - c.yPosition), 2));
+	// 	double distanceD = sqrt(pow((x - d.xPosition), 2) + pow ((y - d.yPosition), 2));
+
+	// 	if (distanceA <= distanceB && distanceA <= distanceC && distanceA <= distanceD)
+	// 		return a;
+	// 	if (distanceB <= distanceA && distanceB <= distanceC && distanceB <= distanceD)
+	// 		return b;
+	// 	if (distanceC <= distanceA && distanceC <= distanceB && distanceC <= distanceD)
+	// 		return c;
+	// 	if (distanceD <= distanceA && distanceD <= distanceB && distanceD <= distanceC)
+	// 		return d;
+	// }
 
 private:
 	imageMatrix image;
