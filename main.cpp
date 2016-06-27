@@ -23,7 +23,7 @@ using namespace cimg_library;
 
 int main(int argc, char * argv[]) 
 {
-	CImg<double> image("images/input/marroquim.png");
+	CImg<double> image("images/input/frutas.png");
 
 	Meanshift meanshift;
 	meanshift.filtering(image, 32.0, 16.0);
