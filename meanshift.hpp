@@ -6,6 +6,7 @@
 #include <cstdio>						// C I/O (for sscanf)
 #include <cstring>						// string manipulation
 #include <math.h>
+#include <bitset>                       // std::bitset
 
 #define cimg_use_magick
 
@@ -34,14 +35,20 @@ typedef struct imageMatrix
 	pixel **matrix;
 } imageMatrix;
 
+typedef struct point
+{
+	int xPosition;
+	int yPosition;
+} point;
+
 typedef struct cluster
 {
-	// double vec;
-	// std::vector<pixel> clusterVector;
 	pixel kernel;
 	int nPoints;
-	std::vector<pixel> points;
-	int *inCluster;
+	std::vector<point> points;
+	// bool *inCluster;
+	// std::vector<int> * inCluster;
+	// std::vector<std::vector<int> > inCluster;
 } cluster;
 
 class Meanshift
@@ -188,12 +195,12 @@ public:
 
 		img.save("images/output/filteredImage.png");
 
-		clustering (img, hr, currentMatrix);
-
 		delete [] currentMatrix;
+
+		clustering (img, hr);
 	}
 
-	bool pointInCluster (std::vector<pixel> points, pixel p)
+	bool pointInCluster (std::vector<point> points, pixel p)
 	{
 		for (int i = 0; i < points.size(); i++)
 		{
@@ -205,7 +212,20 @@ public:
 		return false;
 	}
 
-	void clustering (CImg<double> img, double hr, pixel * currentMatrix)
+	// bool pointInCluster (std::vector<int> points, pixel p)
+	// {
+	// 	for (int i = 0; i < points.size(); i++)
+	// 	{
+	// 		// std::cout << p.yPosition << "," << points[i] << std::endl;
+	// 		if (p.yPosition == points[i])
+	// 		{
+	// 			return true;
+	// 		}
+	// 	}
+	// 	return false;
+	// }
+
+	void clustering (CImg<double> img, double hr)
 	{
 		cluster * clusterMatrix = new cluster[image.width * image.height];
 		for (int y = 0; y < image.height; y++)
@@ -218,10 +238,20 @@ public:
 				clusterMatrix[(y * image.width) + x].kernel.xPosition = (double) x;
 				clusterMatrix[(y * image.width) + x].kernel.yPosition = (double) y;
 				clusterMatrix[(y * image.width) + x].nPoints          = 1;
-				clusterMatrix[(y * image.width) + x].points.push_back(clusterMatrix[(y * image.width) + x].kernel);
 
-				clusterMatrix[(y * image.width) + x].inCluster = new int[image.width * image.height]();
-				clusterMatrix[(y * image.width) + x].inCluster[(y * image.width) + x] = 1;
+				point p;
+				p.xPosition = x;
+				p.yPosition = y;
+
+				clusterMatrix[(y * image.width) + x].points.push_back(p);
+				// clusterMatrix[(y * image.width) + x].points.push_back(clusterMatrix[(y * image.width) + x].kernel);
+
+				// clusterMatrix[(y * image.width) + x].inCluster = new bool[image.width * image.height]();
+				
+				// clusterMatrix[(y * image.width) + x].inCluster[(y * image.width) + x] = 1;
+
+				// clusterMatrix[(y * image.width) + x].inCluster = std::vector<std::vector<int> >(image.width);
+				// clusterMatrix[(y * image.width) + x].inCluster[x].push_back(y);
 			}
 		}
 
@@ -234,8 +264,8 @@ public:
 				for (int i = 0; i < neighbors.size(); i++)
 				{
 					// Checking if neighbor is already inside this cluster
-					if (!clusterMatrix[(y * image.width) + x].inCluster[(int) (neighbors[i].yPosition * image.width + neighbors[i].xPosition)])
-					// if (!pointInCluster(clusterMatrix[(y * image.width) + x].points, neighbors[i]))
+					if (!pointInCluster(clusterMatrix[(y * image.width) + x].points, neighbors[i]))
+					// if (!clusterMatrix[(y * image.width) + x].inCluster[(int) (neighbors[i].yPosition * image.width + neighbors[i].xPosition)])
 					{
 						bool group = sqrt(pow(neighbors[i].red   - clusterMatrix[(y * image.width) + x].kernel.red,   2)) < hr
 								&&   sqrt(pow(neighbors[i].green - clusterMatrix[(y * image.width) + x].kernel.green, 2)) < hr
@@ -255,10 +285,11 @@ public:
 							            +  clusterMatrix[(int) (neighbors[i].yPosition) * image.width + (int) neighbors[i].xPosition].nPoints * neighbors[i].blue)
 							            / (clusterMatrix[(y * image.width) + x].nPoints + clusterMatrix[(int) (neighbors[i].yPosition) * image.width + (int) neighbors[i].xPosition].nPoints);
 							
-							std::vector<pixel> n  = clusterMatrix[(y * image.width) + x].points;
-							std::vector<pixel> nn = clusterMatrix[(int) (neighbors[i].yPosition) * image.width + (int) neighbors[i].xPosition].points;
+							std::vector<point> n  = clusterMatrix[(y * image.width) + x].points;
+							std::vector<point> nn = clusterMatrix[(int) (neighbors[i].yPosition) * image.width + (int) neighbors[i].xPosition].points;
 
 							int nP = n.size() + nn.size();
+							// std::cout << "npoints: " << nP << std::endl;
 
 							for (int k = 0; k < n.size(); k++)
 							{
@@ -274,18 +305,33 @@ public:
 									clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].kernel.blue    = blue;
 									clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].nPoints        = nP;
 									
-									if (clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].inCluster[(int) (nn[z].yPosition * image.width + nn[z].xPosition)] != 1)
-									{
-										clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].points.push_back(nn[z]);
-										clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].nPoints = nP;
-										clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].inCluster[(int) (nn[z].yPosition * image.width + nn[z].xPosition)] = 1;
-									}
-									if (clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].inCluster[(int) (n[k].yPosition * image.width + n[k].xPosition)] != 1)
-									{
-										clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].inCluster[(int) (n[k].yPosition * image.width + n[k].xPosition)] = 1;
-										clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].points.push_back(n[k]);
-										clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].nPoints = nP;
-									}
+									
+									// if (clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].inCluster[(int) (nn[z].yPosition * image.width + nn[z].xPosition)] != 1)
+									
+
+									clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].points.push_back(nn[z]);
+									clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].nPoints = nP;
+
+									// clusterMatrix[(int) (n[k].yPosition * image.width + n[k].xPosition)].inCluster[nn[z].xPosition].push_back(nn[z].yPosition);
+										// clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].inCluster.set((int) (nn[z].yPosition * image.width + nn[z].xPosition));
+										// clusterMatrix[(int) ((n[k].yPosition * image.width) + n[k].xPosition)].inCluster[(int) (nn[z].yPosition * image.width + nn[z].xPosition)] = 1;
+
+									// if (!pointInCluster(clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].inCluster[(int) n[k].xPosition], n[k]))
+									// if (!pointInCluster(clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].points, n[k]))
+									// if (clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].inCluster[(int) (n[k].yPosition * image.width + n[k].xPosition)] != 1)
+									// if (!pointInCluster(clusterMatrix[(int) (nn[z].yPosition * image.width + nn[z].xPosition)].inCluster[n[k].xPosition], n[k]))
+									// {
+									
+										
+									clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].points.push_back(n[k]);
+									clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].nPoints = nP;
+										
+
+										// clusterMatrix[(int) (nn[z].yPosition * image.width + nn[z].xPosition)].inCluster[n[k].xPosition].push_back(n[k].yPosition);
+										// clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].inCluster.set((int) (n[k].yPosition * image.width + n[k].xPosition));
+
+										// clusterMatrix[(int) ((nn[z].yPosition * image.width) + nn[z].xPosition)].inCluster[(int) (n[k].yPosition * image.width + n[k].xPosition)] = 1;
+									// }
 								}
 							}
 						}
